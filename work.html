@@ -1,0 +1,110 @@
+<!doctype<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>مهامي (Kanban)</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+    <style>
+        .kanban-board { display: flex; gap: 20px; padding: 20px; overflow-x: auto; height: 80vh; }
+        .column { flex: 1; min-width: 250px; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; }
+        .column h3 { text-align: center; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
+        .task-card { background: rgba(255,255,255,0.9); color: #333; padding: 10px; margin-bottom: 10px; border-radius: 5px; cursor: move; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .task-card:active { opacity: 0.5; }
+    </style>
+</head>
+<body>
+    <div class="nav-bar glass-panel" style="margin: 20px;">
+        <a href="dashboard.html" class="btn">عودة</a>
+        <button id="addTaskBtn" class="btn btn-primary">مهمة جديدة</button>
+    </div>
+
+    <div class="kanban-board">
+        <div class="column" id="todo" data-status="todo">
+            <h3>قيد الانتظار</h3>
+            </div>
+        <div class="column" id="doing" data-status="doing">
+            <h3>جاري العمل</h3>
+        </div>
+        <div class="column" id="done" data-status="done">
+            <h3>مكتمل</h3>
+        </div>
+    </div>
+
+    <script type="module">
+        import { dbInstance } from './assets/js/core/db.js';
+        import { authInstance } from './assets/js/core/auth.js';
+
+        authInstance.checkAuth();
+        const user = authInstance.currentUser;
+
+        async function loadTasks() {
+            await dbInstance.connect();
+            const tasks = await dbInstance.getAll('tasks');
+            const myTasks = tasks.filter(t => t.userId === user.email);
+
+            ['todo', 'doing', 'done'].forEach(status => {
+                document.getElementById(status).innerHTML = `<h3>${getStatusTitle(status)}</h3>`;
+            });
+
+            myTasks.forEach(createTaskElement);
+        }
+
+        function getStatusTitle(s) {
+            if(s==='todo') return 'قيد الانتظار';
+            if(s==='doing') return 'جاري العمل';
+            return 'مكتمل';
+        }
+
+        function createTaskElement(task) {
+            const card = document.createElement('div');
+            card.className = 'task-card';
+            card.draggable = true;
+            card.id = task.id;
+            card.innerText = task.title;
+            
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', task.id);
+            });
+
+            document.getElementById(task.status).appendChild(card);
+        }
+
+        // Drag & Drop Logic
+        document.querySelectorAll('.column').forEach(col => {
+            col.addEventListener('dragover', e => e.preventDefault());
+            col.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                const id = e.dataTransfer.getData('text/plain');
+                const newStatus = col.getAttribute('data-status');
+                
+                // UI Move
+                const card = document.getElementById(id);
+                col.appendChild(card);
+
+                // DB Update
+                const tasks = await dbInstance.getAll('tasks');
+                const task = tasks.find(t => t.id === id);
+                task.status = newStatus;
+                await dbInstance.put('tasks', task);
+            });
+        });
+
+        document.getElementById('addTaskBtn').onclick = async () => {
+            const title = prompt('عنوان المهمة:');
+            if(title) {
+                const task = {
+                    id: crypto.randomUUID(),
+                    userId: user.email,
+                    title,
+                    status: 'todo',
+                    createdAt: Date.now()
+                };
+                await dbInstance.add('tasks', task);
+                loadTasks();
+            }
+        };
+
+        loadTasks();
+    </script>
+</body>
+</html>

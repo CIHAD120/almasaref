@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تسجيل الدخول</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+</head>
+<body style="display:flex; justify-content:center; align-items:center; height:100vh;">
+    <div class="glass-panel" style="padding: 2rem; width: 400px;">
+        <h2 id="formTitle">تسجيل الدخول</h2>
+        <form id="authForm">
+            <input type="text" id="nameInput" placeholder="الاسم الكامل" style="display:none;">
+            <input type="email" id="email" placeholder="البريد الإلكتروني" required>
+            <input type="password" id="password" placeholder="كلمة المرور" required>
+            <button type="submit" class="btn btn-primary" style="width:100%">دخول</button>
+        </form>
+        <p style="margin-top:1rem; text-align:center;">
+            <a href="#" id="toggleAuth">ليس لديك حساب؟ سجل الآن</a>
+        </p>
+        <div id="msg" style="color:red; text-align:center; margin-top:10px;"></div>
+    </div>
+
+    <script type="module">
+        import { authInstance } from './assets/js/core/auth.js';
+        import { dbInstance } from './assets/js/core/db.js';
+
+        let isLogin = true;
+        
+        // Seed Data Logic (Runs once)
+        async function seedData() {
+            await dbInstance.connect();
+            const users = await dbInstance.getAll('users');
+            if (users.length === 0) {
+                await authInstance.register('demo@app.com', '123456', 'مستخدم تجريبي');
+                console.log('Seed Data Created: demo@app.com / 123456');
+            }
+        }
+        seedData();
+
+        document.getElementById('toggleAuth').addEventListener('click', (e) => {
+            e.preventDefault();
+            isLogin = !isLogin;
+            document.getElementById('formTitle').innerText = isLogin ? 'تسجيل الدخول' : 'حساب جديد';
+            document.getElementById('nameInput').style.display = isLogin ? 'none' : 'block';
+            document.getElementById('toggleAuth').innerText = isLogin ? 'ليس لديك حساب؟ سجل الآن' : 'لديك حساب بالفعل؟';
+        });
+
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const msg = document.getElementById('msg');
+            
+            try {
+                if (isLogin) {
+                    await authInstance.login(email, pass);
+                    window.location.href = 'dashboard.html';
+                } else {
+                    const name = document.getElementById('nameInput').value;
+                    const res = await authInstance.register(email, pass, name);
+                    if(res.success) {
+                        alert('تم التسجيل! قم بتسجيل الدخول الآن');
+                        window.location.reload();
+                    } else {
+                        msg.innerText = res.message;
+                    }
+                }
+            } catch (err) {
+                msg.innerText = err.message;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إدارة المصاريف</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+</head>
+<body>
+    <div style="padding: 2rem; max-width: 800px; margin: 0 auto;">
+        <div class="nav-bar glass-panel" style="padding:1rem; display:flex; justify-content:space-between; margin-bottom:1rem;">
+            <a href="dashboard.html" class="btn">عودة للرئيسية</a>
+            <h2>المصاريف</h2>
+        </div>
+
+        <div class="glass-panel" style="padding: 1rem; margin-bottom: 2rem;">
+            <form id="expenseForm">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="number" id="amount" placeholder="المبلغ" required>
+                    <input type="date" id="date" required>
+                    <input type="text" id="category" placeholder="التصنيف (طعام، نقل...)">
+                    <input type="text" id="notes" placeholder="ملاحظات">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px;">إضافة مصروف</button>
+            </form>
+        </div>
+
+        <div class="glass-panel" style="padding: 1rem;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #ccc;">
+                        <th>التاريخ</th>
+                        <th>المبلغ</th>
+                        <th>التصنيف</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="expenseList">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { dbInstance } from './assets/js/core/db.js';
+        import { authInstance } from './assets/js/core/auth.js';
+
+        authInstance.checkAuth();
+        const user = authInstance.currentUser;
+
+        async function renderExpenses() {
+            await dbInstance.connect();
+            const expenses = await dbInstance.getAll('expenses', 'userId', user.email); // Using email as ID for simplicity
+            // In real app, filter manually if index not working perfectly with strings in simple mock
+            const myExpenses = expenses.filter(e => e.userId === user.email);
+
+            const tbody = document.getElementById('expenseList');
+            tbody.innerHTML = '';
+            
+            myExpenses.forEach(exp => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:10px;">${exp.date}</td>
+                    <td>${exp.amount}</td>
+                    <td>${exp.category}</td>
+                    <td><button class="btn-del btn-danger" data-id="${exp.id}">حذف</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Delete Event
+            document.querySelectorAll('.btn-del').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    await dbInstance.delete('expenses', id); // Note: ID needs to be type matched (string/int)
+                    renderExpenses();
+                });
+            });
+        }
+
+        document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = document.getElementById('amount').value;
+            const date = document.getElementById('date').value;
+            const category = document.getElementById('category').value;
+            
+            const expense = {
+                id: crypto.randomUUID(),
+                userId: user.email,
+                amount: parseFloat(amount),
+                date,
+                category,
+                notes: document.getElementById('notes').value,
+                timestamp: Date.now()
+            };
+
+            await dbInstance.add('expenses', expense);
+            e.target.reset();
+            renderExpenses();
+        });
+
+        renderExpenses();
+    </script>
+</body>
+</html>

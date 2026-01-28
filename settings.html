@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>الإعدادات</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+</head>
+<body>
+    <div style="padding: 2rem; max-width: 600px; margin: 0 auto;">
+        <div class="glass-panel" style="padding:1rem; margin-bottom:2rem; display:flex; justify-content:space-between;">
+            <h3>الإعدادات</h3>
+            <a href="dashboard.html" class="btn">عودة</a>
+        </div>
+
+        <div class="glass-panel" style="padding: 2rem;">
+            <h2 style="color:var(--accent)">إرسال التقرير للمدير</h2>
+            <p style="color:var(--text-muted); margin-bottom:20px;">
+                اضغط هنا لتحميل ملف يحتوي على كافة بياناتك المالية والمهام، ثم أرسله للمدير.
+            </p>
+            <button id="exportBtn" class="btn btn-primary" style="width:100%; padding:15px;">📥 تحميل ملف البيانات (للمراجعة)</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { dbInstance } from './assets/js/core/db.js';
+        import { authInstance } from './assets/js/core/auth.js';
+        authInstance.checkAuth();
+        const user = authInstance.currentUser;
+
+        document.getElementById('exportBtn').onclick = async () => {
+            await dbInstance.connect();
+            const expenses = (await dbInstance.getAll('expenses')).filter(e => e.userId === user.email);
+            const tasks = (await dbInstance.getAll('tasks')).filter(t => t.userId === user.email);
+            const incomes = (await dbInstance.getAll('income')).filter(i => i.userId === user.email);
+
+            const data = { user: { name: user.name, email: user.email }, expenses, tasks, incomes };
+            const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Report_${user.name}_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        };
+    </script>
+</body>
+</html>

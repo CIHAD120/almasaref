@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>مركز القيادة | Finance 3D</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        body { display: flex; overflow: hidden; height: 100vh; }
+        .sidebar { width: 260px; background: rgba(0,0,0,0.4); border-left: 1px solid var(--glass-border); backdrop-filter: blur(20px); display: flex; flex-direction: column; padding: 2rem 1rem; z-index: 10; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #fff; margin-bottom: 3rem; display: flex; align-items: center; gap: 10px; text-shadow: 0 0 15px var(--primary); }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px; color: var(--text-muted); border-radius: 12px; margin-bottom: 5px; transition: 0.3s; font-weight: 500; }
+        .nav-item:hover, .nav-item.active { background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%); color: #fff; border-right: 3px solid var(--primary); }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto 1fr; gap: 20px; }
+        header { grid-column: span 4; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .stat-card { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.2) 100%); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--glass-border); position: relative; overflow: hidden; }
+        .stat-card::after { content: ''; position: absolute; top:0; left:0; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--primary), transparent); opacity: 0.5; }
+        .stat-val { font-size: 2rem; font-weight: bold; color: #fff; margin: 10px 0; }
+        .stat-label { color: var(--text-muted); font-size: 0.9rem; }
+        #scene-container { grid-column: span 3; grid-row: span 2; height: 400px; border-radius: 20px; position: relative; box-shadow: inset 0 0 100px rgba(0,0,0,0.8); }
+        .actions-panel { grid-column: span 1; grid-row: span 2; display: flex; flex-direction: column; gap: 15px; }
+        .action-btn { background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 16px; text-align: center; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .action-btn:hover { background: rgba(16, 185, 129, 0.1); transform: translateY(-5px); border-color: var(--primary); }
+        .recent-activity { grid-column: span 4; background: rgba(0,0,0,0.2); border-radius: 16px; padding: 1.5rem; border: 1px solid var(--glass-border); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 200; display: none; justify-content: center; align-items: center; }
+        .modal-content { width: 400px; padding: 2rem; background: #0f172a; border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+
+    <div id="incomeModal" class="modal-overlay">
+        <div class="modal-content glass-panel">
+            <h3 style="margin-bottom: 20px;">إضافة دخل / راتب</h3>
+            <form id="incomeForm">
+                <input type="number" id="incAmount" placeholder="القيمة (مثلاً 5000)" required>
+                <input type="text" id="incSource" placeholder="المصدر (راتب شهري، عمل حر...)" required>
+                <input type="date" id="incDate" required>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary" style="flex:1">حفظ</button>
+                    <button type="button" id="closeModal" class="btn btn-danger" style="flex:1">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <aside class="sidebar">
+        <div class="logo"><i class="ph ph-cube-transparent" style="color:var(--primary)"></i> FINANCE 3D</div>
+        <nav style="flex:1;">
+            <a href="#" class="nav-item active"><i class="ph ph-squares-four"></i> لوحة القيادة</a>
+            <a href="expenses.html" class="nav-item"><i class="ph ph-wallet"></i> المصاريف</a>
+            <a href="work.html" class="nav-item"><i class="ph ph-kanban"></i> المهام</a>
+            <a href="reports.html" class="nav-item"><i class="ph ph-chart-line-up"></i> التقارير</a>
+            <a href="settings.html" class="nav-item"><i class="ph ph-gear"></i> الإعدادات</a>
+        </nav>
+        <button id="logoutBtn" class="nav-item" style="color: var(--danger); background:none; border:none; width:100%; cursor:pointer;"><i class="ph ph-sign-out"></i> تسجيل خروج</button>
+    </aside>
+
+    <main class="main-content">
+        <header>
+            <div>
+                <h2 style="margin:0; border:none;">مركز القيادة</h2>
+                <p style="color:var(--text-muted); margin-top:5px;">تحكم كامل بدخلك ومصاريفك.</p>
+            </div>
+            <div style="display:flex; gap:15px; align-items:center;">
+                <span id="currentDate" style="font-weight:bold;">...</span>
+                <div style="width:40px; height:40px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 15px var(--primary-glow);">
+                    <i class="ph ph-user" style="color:#fff; font-size:1.2rem;"></i>
+                </div>
+            </div>
+        </header>
+
+        <div class="stat-card">
+            <div class="stat-label">إجمالي الدخل (الراتب)</div>
+            <div class="stat-val" id="totalIncome" style="color: var(--accent);">$0.00</div>
+            <div style="color: var(--text-muted); font-size:0.8rem;">كل الواردات</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">إجمالي المصروفات</div>
+            <div class="stat-val" id="totalExp" style="color: var(--danger);">$0.00</div>
+            <div style="color: var(--danger); font-size:0.8rem;">استهلاك</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">المتبقي الفعلي</div>
+            <div class="stat-val" id="balance">$0.00</div>
+            <div id="balanceStatus" style="font-size:0.8rem;"></div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">نسبة الإنجاز</div>
+            <div class="stat-val" id="taskRate">0%</div>
+            <div class="progress-bar" style="height:4px; background:#333; margin-top:5px; border-radius:2px;">
+                <div id="progressBar" style="width:0%; height:100%; background:var(--primary); border-radius:2px;"></div>
+            </div>
+        </div>
+
+        <div id="scene-container" class="glass-panel">
+            <div style="position:absolute; top:20px; right:20px; z-index:5;">
+                <h3 style="margin:0; font-size:1.2rem;">تحليل الدخل vs الصرف</h3>
+                <p style="font-size:0.8rem; color:var(--text-muted)">الأخضر: الدخل | الأحمر: المصاريف</p>
+            </div>
+        </div>
+
+        <div class="actions-panel">
+            <div class="action-btn" id="openIncomeBtn" style="border-color: var(--accent);">
+                <i class="ph ph-bank" style="font-size:2rem; color: var(--accent);"></i>
+                <span>إضافة راتب/دخل</span>
+            </div>
+            <a href="expenses.html" class="action-btn">
+                <i class="ph ph-money" style="font-size:2rem; color: var(--danger);"></i>
+                <span>تسجيل مصروف</span>
+            </a>
+            <a href="work.html" class="action-btn">
+                <i class="ph ph-check-square-offset" style="font-size:2rem; color: #60a5fa;"></i>
+                <span>مهمة جديدة</span>
+            </a>
+        </div>
+
+        <div class="recent-activity glass-panel">
+            <h3 style="border-bottom:1px solid var(--glass-border); padding-bottom:10px; margin-bottom:15px;">آخر العمليات المالية</h3>
+            <table style="width:100%;">
+                <tbody id="activityTable"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script type="module">
+        import { authInstance } from './assets/js/core/auth.js';
+        import { dbInstance } from './assets/js/core/db.js';
+
+        authInstance.checkAuth();
+        const user = authInstance.currentUser;
+        document.getElementById('currentDate').innerText = new Date().toLocaleDateString('ar-EG');
+        document.getElementById('logoutBtn').onclick = () => authInstance.logout();
+
+        // --- Modal Logic ---
+        const modal = document.getElementById('incomeModal');
+        document.getElementById('openIncomeBtn').onclick = () => {
+            modal.style.display = 'flex';
+            document.getElementById('incDate').valueAsDate = new Date();
+        };
+        document.getElementById('closeModal').onclick = () => modal.style.display = 'none';
+        
+        document.getElementById('incomeForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const income = {
+                id: crypto.randomUUID(),
+                userId: user.email,
+                amount: parseFloat(document.getElementById('incAmount').value),
+                source: document.getElementById('incSource').value,
+                date: document.getElementById('incDate').value,
+                timestamp: Date.now()
+            };
+            await dbInstance.add('income', income);
+            modal.style.display = 'none';
+            e.target.reset();
+            initDashboard(); // Refresh
+        };
+
+        // --- Main Logic ---
+        async function initDashboard() {
+            await dbInstance.connect();
+            
+            const expenses = await dbInstance.getAll('expenses');
+            const tasks = await dbInstance.getAll('tasks');
+            const incomes = await dbInstance.getAll('income'); // Fetch Incomes
+            
+            const myExpenses = expenses.filter(e => e.userId === user.email);
+            const myTasks = tasks.filter(t => t.userId === user.email);
+            const myIncomes = incomes ? incomes.filter(i => i.userId === user.email) : [];
+
+            // Totals
+            const totalExp = myExpenses.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+            const totalInc = myIncomes.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+            const balance = totalInc - totalExp;
+
+            // Update UI
+            document.getElementById('totalExp').innerText = '$' + totalExp.toLocaleString();
+            document.getElementById('totalIncome').innerText = '$' + totalInc.toLocaleString();
+            document.getElementById('balance').innerText = '$' + balance.toLocaleString();
+            
+            const balStatus = document.getElementById('balanceStatus');
+            if(balance < 0) { balStatus.innerText = '⚠️ عجز في الميزانية'; balStatus.style.color = 'var(--danger)'; }
+            else { balStatus.innerText = 'وضعك المالي جيد'; balStatus.style.color = 'var(--accent)'; }
+
+            const doneT = myTasks.filter(t => t.status === 'done').length;
+            const rate = myTasks.length ? Math.round((doneT / myTasks.length) * 100) : 0;
+            document.getElementById('taskRate').innerText = rate + '%';
+            document.getElementById('progressBar').style.width = rate + '%';
+
+            // Activity Table (Combine Income + Expense)
+            const combined = [
+                ...myExpenses.map(e => ({ type: 'exp', title: e.category, val: e.amount, date: e.date, id: e.timestamp })),
+                ...myIncomes.map(i => ({ type: 'inc', title: i.source, val: i.amount, date: i.date, id: i.timestamp }))
+            ].sort((a,b) => b.id - a.id).slice(0, 5);
+
+            const tbody = document.getElementById('activityTable');
+            tbody.innerHTML = '';
+            combined.forEach(item => {
+                const tr = document.createElement('tr');
+                const isInc = item.type === 'inc';
+                tr.innerHTML = `
+                    <td><span style="padding:4px 8px; border-radius:4px; background:${isInc?'rgba(16,185,129,0.2)':'rgba(239,68,68,0.2)'}; color:${isInc?'#34d399':'#ef4444'}; font-size:0.8rem;">${isInc?'وارد':'صادر'}</span></td>
+                    <td style="font-weight:bold;">${item.title}</td>
+                    <td dir="ltr" style="text-align:right; font-family:monospace;">$${item.val}</td>
+                    <td style="color:var(--text-muted);">${item.date}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Re-Init 3D
+            const container = document.getElementById('scene-container');
+            container.innerHTML = '<div style="position:absolute; top:20px; right:20px; z-index:5;"><h3 style="margin:0; font-size:1.2rem;">تحليل الدخل vs الصرف</h3><p style="font-size:0.8rem; color:var(--text-muted)">الأخضر: الدخل | الأحمر: المصاريف</p></div>';
+            initThreeJS(totalInc, totalExp);
+        }
+
+        // --- 3D Scene (Comparison) ---
+        function initThreeJS(income, expense) {
+            const container = document.getElementById('scene-container');
+            const scene = new THREE.Scene();
+            
+            const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 4, 8);
+            camera.lookAt(0, 1, 0);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            const light = new THREE.PointLight(0xffffff, 1, 50);
+            light.position.set(5, 5, 5);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0x404040)); // Soft light
+
+            // Base
+            const grid = new THREE.GridHelper(20, 20, 0x334155, 0x1e293b);
+            scene.add(grid);
+
+            // Scale Factor
+            const maxVal = Math.max(income, expense, 1000);
+            const scale = 5 / maxVal; // 5 is max height
+
+            // Income Bar (Green) - Left
+            const h1 = income * scale || 0.1;
+            const mat1 = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.2, metalness: 0.8 });
+            const bar1 = new THREE.Mesh(new THREE.BoxGeometry(1.5, h1, 1.5), mat1);
+            bar1.position.set(-1.5, h1/2, 0);
+            scene.add(bar1);
+
+            // Expense Bar (Red) - Right
+            const h2 = expense * scale || 0.1;
+            const mat2 = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2, metalness: 0.8 });
+            const bar2 = new THREE.Mesh(new THREE.BoxGeometry(1.5, h2, 1.5), mat2);
+            bar2.position.set(1.5, h2/2, 0);
+            scene.add(bar2);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                // Rotate Scene slightly
+                scene.rotation.y = Math.sin(Date.now() * 0.0005) * 0.1;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        initDashboard();
+    </script>
+</body>
+</html>
