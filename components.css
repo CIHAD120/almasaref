@@ -1,0 +1,8 @@
+/* Cards, Buttons, Inputs, Modal, Glassmorphism */
+.card{border:1px solid var(--border); background:var(--card); border-radius:var(--radius); padding:16px; backdrop-filter: blur(10px);}
+.btn{border:1px solid var(--border); background:rgba(110,168,254,0.15); color:var(--fg); padding:10px 12px; border-radius:12px; cursor:pointer;}
+.btn:hover{background:rgba(110,168,254,0.22);}
+.input{width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:rgba(0,0,0,0.15); color:var(--fg);}
+.modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.55);}
+.modal.open{display:flex;}
+.modal__panel{width:min(520px,92vw);}
